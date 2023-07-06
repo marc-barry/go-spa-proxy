@@ -1,0 +1,27 @@
+# https://taskfile.dev
+
+version: "3"
+
+vars:
+  GREETING: Hello, World!
+
+tasks:
+  default:
+    cmds:
+      - echo "{{.GREETING}}"
+    silent: true
+  docker-build:
+    cmds:
+      - docker build . --platform linux/amd64 -t middlenamesfirst/go-spa-proxy
+  docker-push:
+    cmds:
+      - docker push middlenamesfirst/go-spa-proxy
+  docker-run:
+    cmds:
+      - docker run -it --rm --platform linux/amd64 --mount type=bind,source=./config.json,target=/app/config.json,readonly -p 3000:3000 -t middlenamesfirst/go-spa-proxy
+  run:
+    cmds:
+      - go run main.go
+  test:
+    cmds:
+      - go test -v ./...

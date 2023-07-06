@@ -11,8 +11,13 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/gin-contrib/gzip"
 	"github.com/gin-gonic/gin"
 )
+
+const STATIC_CACHE_CONTROL = "public, max-age=86400"
+const NO_STORE_CACHE_CONTROL = "no-store"
+const INDEX_CACHE_CONTROL = "public, max-age=0, must-revalidate"
 
 const PORT int = 3000
 
@@ -89,12 +94,15 @@ func main() {
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.Default()
 	router.SetTrustedProxies(nil)
+	router.Use(gzip.Gzip(gzip.DefaultCompression))
 
 	router.GET("/healthz", func(c *gin.Context) {
+		c.Writer.Header().Set("Cache-Control", NO_STORE_CACHE_CONTROL)
 		c.String(200, "healthy")
 	})
 
 	router.GET("/readyz", func(c *gin.Context) {
+		c.Writer.Header().Set("Cache-Control", NO_STORE_CACHE_CONTROL)
 		if _, err := os.Stat(getEnv("READY_FILE", "ready")); err == nil {
 			c.String(200, "ready")
 		} else {
@@ -103,18 +111,26 @@ func main() {
 	})
 
 	router.GET("/_next/*filepath", func(c *gin.Context) {
-		c.Writer.Header().Set("Cache-Control", "public, max-age=86400")
+		c.Writer.Header().Set("Cache-Control", STATIC_CACHE_CONTROL)
 		proxy(c)
 	})
 
 	router.GET("/static/*filepath", func(c *gin.Context) {
-		c.Writer.Header().Set("Cache-Control", "public, max-age=86400")
+		c.Writer.Header().Set("Cache-Control", STATIC_CACHE_CONTROL)
+		proxy(c)
+	})
+
+	router.GET("/:top", func(c *gin.Context) {
+		if c.Request.URL.Path == "/login" || c.Request.URL.Path == "/logout" {
+			c.Request.URL.Path = "/index.html"
+		}
+		c.Writer.Header().Set("Cache-Control", INDEX_CACHE_CONTROL)
 		proxy(c)
 	})
 
 	router.NoRoute(func(c *gin.Context) {
 		c.Request.URL.Path = "/index.html"
-		c.Writer.Header().Set("Cache-Control", "public, max-age=0, must-revalidate")
+		c.Writer.Header().Set("Cache-Control", INDEX_CACHE_CONTROL)
 		proxy(c)
 	})
 
